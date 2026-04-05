@@ -1,0 +1,5 @@
+{
+  "name": "Svelte Slot Adventure",
+  "description": "A vibrant and engaging slot machine game built with Svelte and Tailwind CSS.",
+  "requestFramePermissions": []
+}
