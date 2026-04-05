@@ -365,7 +365,7 @@
       <div class="bg-white/5 p-6 rounded-3xl border border-white/10 flex flex-col gap-4">
         <span class="text-xs uppercase tracking-widest text-white/40 font-bold">Payout Multipliers</span>
         <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-white/60">
-          <div class="flex justify-between"><span>777</span> <span class="text-red-500 font-bold">50x</span></div>
+          <div class="flex justify-between"><span>7️⃣7️⃣7️⃣</span> <span class="text-red-500 font-bold">50x</span></div>
           <div class="flex justify-between"><span>💎💎💎</span> <span class="text-blue-400 font-bold">25x</span></div>
           <div class="flex justify-between"><span>🔔🔔🔔</span> <span class="text-yellow-500 font-bold">10x</span></div>
           <div class="flex justify-between"><span>🍇🍇🍇</span> <span class="text-purple-500 font-bold">5x</span></div>
