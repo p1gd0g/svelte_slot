@@ -23,9 +23,9 @@
 
   // Sound Effects
   const SOUNDS = {
-    spin: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3',
-    stop: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
-    win: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3'
+    spin: 'https://www.soundjay.com/misc/sounds/slot-machine-spin-1.mp3',
+    stop: 'https://www.soundjay.com/misc/sounds/button-3.mp3',
+    win: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3'
   };
 
   // Game State
