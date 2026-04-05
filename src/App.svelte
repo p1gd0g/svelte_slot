@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { onMount, tick } from "svelte";
     import {
         Coins,
         RotateCw,
@@ -113,9 +113,9 @@
         Array(REEL_COUNT)
             .fill(0)
             .map((_, i) => ({
-                symbols: reels[i],
-                offset: 0,
-                isSpinning: false,
+                symbols: reels[i] as (typeof SYMBOLS)[number][],
+                phase: "idle" as "idle" | "spinning" | "stopping",
+                targetOffset: 0,
             })),
     );
 
@@ -180,43 +180,51 @@
             .fill(0)
             .map(() => getRandomSymbols());
 
-        const spinPromises = reelData.map(async (reel, i) => {
-            // Create a long strip: current symbols + random padding + final symbols
-            const paddingCount = 40 + i * 20;
-            const padding = Array(paddingCount)
+        // Phase 1: Start all reels with a lightweight CSS keyframe loop
+        // Only 6 DOM nodes per reel (doubled for seamless looping)
+        for (let i = 0; i < REEL_COUNT; i++) {
+            const loopBase = getRandomSymbols();
+            reelData[i].symbols = [...loopBase, ...loopBase];
+            reelData[i].targetOffset = 0;
+            reelData[i].phase = "spinning";
+        }
+
+        // Phase 2: Stop reels one by one with staggered timing
+        const stopPromises = reelData.map(async (reel, i) => {
+            await new Promise((resolve) => setTimeout(resolve, 1000 + i * 500));
+
+            // Build stopping strip: small buffer + final symbols
+            const bufferCount = 8 + Math.floor(Math.random() * 6);
+            const buffer = Array(bufferCount)
                 .fill(0)
                 .map(() => SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]);
+            const stopSymbols = [...buffer, ...finalResults[i]];
+            const totalCount = stopSymbols.length;
 
-            const newSymbols = [
-                ...reel.symbols,
-                ...padding,
-                ...finalResults[i],
-            ];
-            reel.symbols = newSymbols;
+            // Switch to stopping phase at initial position
+            reel.symbols = stopSymbols;
+            reel.phase = "stopping";
+            reel.targetOffset = 0;
 
-            // Wait a tick for DOM to update
-            await new Promise((resolve) => setTimeout(resolve, 50));
+            // Wait for DOM update + browser paint before triggering transition
+            await tick();
+            await new Promise((r) => requestAnimationFrame(r));
 
-            reel.isSpinning = true;
-            // Calculate offset: move up by (total - 3) symbols
-            // Each symbol height is 1/3 of the container height (100% / 3)
-            const symbolHeightPct = 100 / 3;
-            reel.offset = (newSymbols.length - 3) * symbolHeightPct;
+            // Scroll to final symbols (correct % of element's own height)
+            reel.targetOffset = ((totalCount - ROWS) / totalCount) * 100;
 
-            // Wait for transition to finish (duration matches CSS)
-            await new Promise((resolve) => setTimeout(resolve, 2500 + i * 600));
+            // Wait for CSS transition to settle (1s + buffer)
+            await new Promise((resolve) => setTimeout(resolve, 1200));
 
-            // Reset for next spin: keep only the last 3 symbols and reset offset
+            // Reset to clean final state (visually identical, no flash)
             reel.symbols = finalResults[i];
-            reel.offset = 0;
-            reel.isSpinning = false;
-            playSfx("stop");
-
-            // Update the main reels state for win checking
+            reel.targetOffset = 0;
+            reel.phase = "idle";
             reels[i] = finalResults[i];
+            playSfx("stop");
         });
 
-        await Promise.all(spinPromises);
+        await Promise.all(stopPromises);
 
         stopSfx("spin");
         checkWin();
@@ -385,12 +393,14 @@
                                 class="relative h-[220px] sm:h-[280px] md:h-[380px] bg-neutral-800/50 rounded-xl md:rounded-2xl border border-white/5 overflow-hidden"
                             >
                                 <div
-                                    class="absolute inset-x-0 flex flex-col items-center"
+                                    class="absolute inset-x-0 flex flex-col items-center reel-strip"
+                                    class:reel-spinning={reel.phase ===
+                                        "spinning"}
+                                    class:reel-stopping={reel.phase ===
+                                        "stopping"}
                                     style="
-                    transform: translateY(-{reel.offset}%);
-                    transition: transform {reel.isSpinning
-                                        ? 2.5 + i * 0.6
-                                        : 0}s cubic-bezier(0.45, 0.05, 0.2, 1);
+                    --spin-speed: {0.07 + i * 0.015}s;
+                    transform: translate3d(0, -{reel.targetOffset}%, 0);
                     height: {reel.symbols.length * (100 / 3)}%;
                   "
                                 >
@@ -401,10 +411,7 @@
                                                 reel.symbols.length}%;"
                                         >
                                             <div
-                                                class="text-3xl sm:text-4xl md:text-6xl transition-all duration-300 transform"
-                                                class:blur-sm={reel.isSpinning}
-                                                class:scale-90={reel.isSpinning}
-                                                class:opacity-80={reel.isSpinning}
+                                                class="text-3xl sm:text-4xl md:text-6xl"
                                             >
                                                 {symbol.icon}
                                             </div>
@@ -656,6 +663,33 @@
     :global(body) {
         background-color: #0a0a0a;
         overflow-x: hidden;
+    }
+
+    /* GPU-composited reel strip */
+    .reel-strip {
+        will-change: transform;
+        transform: translate3d(0, 0, 0);
+    }
+
+    /* Lightweight seamless CSS keyframe loop (6 DOM nodes vs 40-80) */
+    .reel-spinning {
+        animation: reel-loop var(--spin-speed, 0.08s) linear infinite;
+        filter: blur(1.5px);
+        opacity: 0.8;
+    }
+
+    /* Deceleration with subtle bounce overshoot */
+    .reel-stopping {
+        transition: transform 1s cubic-bezier(0.12, 0.7, 0.1, 1.03);
+    }
+
+    @keyframes reel-loop {
+        from {
+            transform: translate3d(0, 0, 0);
+        }
+        to {
+            transform: translate3d(0, -50%, 0);
+        }
     }
 
     .custom-scrollbar::-webkit-scrollbar {
