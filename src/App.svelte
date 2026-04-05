@@ -85,7 +85,11 @@
     }
   }
 
-  let bet = $state(10);
+  let betMultiplierIndex = $state(0);
+  const BET_MULTIPLIERS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+  const BASE_BET = 10;
+  let bet = $derived(BASE_BET * BET_MULTIPLIERS[betMultiplierIndex]);
+
   let spinning = $state(false);
   let lastWin = $state(0);
   let reels = $state(Array(REEL_COUNT).fill(0).map(() => getRandomSymbols()));
@@ -198,9 +202,15 @@
     setTimeout(() => winParticles = [], 2000);
   }
 
-  function adjustBet(amount: number) {
+  function adjustBet(direction: number) {
     if (spinning) return;
-    bet = Math.max(10, Math.min(balance, bet + amount));
+    const newIndex = betMultiplierIndex + direction;
+    if (newIndex >= 0 && newIndex < BET_MULTIPLIERS.length) {
+      const nextBet = BASE_BET * BET_MULTIPLIERS[newIndex];
+      if (nextBet <= balance || direction < 0) {
+        betMultiplierIndex = newIndex;
+      }
+    }
   }
 
 </script>
@@ -219,70 +229,70 @@
   {/each}
 
   <!-- Header -->
-  <header class="p-6 flex justify-between items-center border-b border-white/10 bg-black/40 backdrop-blur-xl sticky top-0 z-50">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20">
-        <Trophy class="w-6 h-6 text-white" />
+  <header class="p-3 md:p-6 flex justify-between items-center border-b border-white/10 bg-black/40 backdrop-blur-xl sticky top-0 z-50">
+    <div class="flex items-center gap-2 md:gap-3">
+      <div class="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20">
+        <Trophy class="w-5 h-5 md:w-6 md:h-6 text-white" />
       </div>
-      <h1 class="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
+      <h1 class="text-lg md:text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
         Svelte Slot
       </h1>
     </div>
 
-    <div class="flex items-center gap-4">
+    <div class="flex items-center gap-2 md:gap-4">
       <button 
         onclick={() => isMuted = !isMuted}
-        class="p-2 rounded-full hover:bg-white/5 transition-colors text-white/60 hover:text-white"
+        class="p-1.5 md:p-2 rounded-full hover:bg-white/5 transition-colors text-white/60 hover:text-white"
         aria-label={isMuted ? "Unmute" : "Mute"}
       >
         {#if isMuted}
-          <VolumeX class="w-6 h-6" />
+          <VolumeX class="w-5 h-5 md:w-6 md:h-6" />
         {:else}
-          <Volume2 class="w-6 h-6" />
+          <Volume2 class="w-5 h-5 md:w-6 md:h-6" />
         {/if}
       </button>
 
-      <div class="flex flex-col items-end min-w-[120px]">
-        <span class="text-[10px] uppercase tracking-widest text-white/40 font-bold">Balance</span>
-        <div class="flex items-center gap-2">
-          <Coins class="w-4 h-4 text-yellow-400" />
-          <span class="text-xl font-mono font-bold text-yellow-400">
+      <div class="flex flex-col items-end min-w-[80px] md:min-w-[120px]">
+        <span class="text-[8px] md:text-[10px] uppercase tracking-widest text-white/40 font-bold">Balance</span>
+        <div class="flex items-center gap-1 md:gap-2">
+          <Coins class="w-3 h-3 md:w-4 md:h-4 text-yellow-400" />
+          <span class="text-sm md:text-xl font-mono font-bold text-yellow-400">
             ${Math.floor($displayedBalance).toLocaleString()}
           </span>
         </div>
         {#if balance === 0 && timeUntilRecovery}
-          <span class="text-[9px] text-red-400 font-black animate-pulse uppercase tracking-tighter">
-            Recovery in {timeUntilRecovery}
+          <span class="text-[7px] md:text-[9px] text-red-400 font-black animate-pulse uppercase tracking-tighter">
+            {timeUntilRecovery}
           </span>
         {/if}
       </div>
       <button 
         onclick={() => showHistory = !showHistory}
-        class="p-2 rounded-full hover:bg-white/5 transition-colors text-white/60 hover:text-white"
+        class="p-1.5 md:p-2 rounded-full hover:bg-white/5 transition-colors text-white/60 hover:text-white"
       >
-        <History class="w-6 h-6" />
+        <History class="w-5 h-5 md:w-6 md:h-6" />
       </button>
     </div>
   </header>
 
-  <div class="max-w-4xl mx-auto p-8 flex flex-col gap-12">
+  <div class="max-w-4xl mx-auto p-3 md:p-8 flex flex-col gap-4 md:gap-8">
     <!-- Slot Machine -->
     <div class="relative group">
-      <div class="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-[2.5rem] blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
+      <div class="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-[2rem] md:rounded-[2.5rem] blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
       
-      <div class="relative bg-neutral-900 border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl">
+      <div class="relative bg-neutral-900 border border-white/10 rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl">
         <!-- Reel Area -->
-        <div class="grid grid-cols-3 gap-4 p-8 bg-black/40">
+        <div class="grid grid-cols-3 gap-1.5 md:gap-4 p-3 md:p-8 bg-black/40">
           {#each reels as reel, i}
-            <div class="relative h-[400px] bg-neutral-800/50 rounded-2xl border border-white/5 overflow-hidden">
+            <div class="relative h-[220px] sm:h-[280px] md:h-[380px] bg-neutral-800/50 rounded-xl md:rounded-2xl border border-white/5 overflow-hidden">
               <div 
-                class="absolute inset-0 flex flex-col justify-around items-center py-4 transition-transform duration-500"
+                class="absolute inset-0 flex flex-col justify-around items-center py-2 md:py-4 transition-transform duration-500"
                 class:animate-reel-spin={spinning}
                 style="animation-delay: {i * 150}ms"
               >
                 {#each reel as symbol}
                   <div 
-                    class="text-6xl transition-all duration-500 transform"
+                    class="text-3xl sm:text-4xl md:text-6xl transition-all duration-500 transform"
                     class:blur-md={spinning}
                     class:scale-90={spinning}
                     class:opacity-50={spinning}
@@ -299,48 +309,51 @@
         </div>
 
         <!-- Win Display -->
-        <div class="h-24 bg-neutral-900/80 border-t border-white/10 flex items-center justify-center overflow-hidden">
+        <div class="h-12 md:h-20 bg-neutral-900/80 border-t border-white/10 flex items-center justify-center overflow-hidden">
           {#if lastWin > 0}
             <div 
-              class="flex items-center gap-4"
+              class="flex items-center gap-2 md:gap-4"
               in:fly={{ y: 50, duration: 800, easing: elasticOut }}
             >
-              <Trophy class="w-8 h-8 text-yellow-400 animate-bounce" />
-              <span class="text-4xl font-black text-yellow-400 tracking-tighter">
-                JACKPOT! ${lastWin.toLocaleString()}
+              <Trophy class="w-5 h-5 md:w-8 md:h-8 text-yellow-400 animate-bounce" />
+              <span class="text-xl md:text-4xl font-black text-yellow-400 tracking-tighter">
+                WIN! ${lastWin.toLocaleString()}
               </span>
-              <Trophy class="w-8 h-8 text-yellow-400 animate-bounce" />
+              <Trophy class="w-5 h-5 md:w-8 md:h-8 text-yellow-400 animate-bounce" />
             </div>
           {:else if spinning}
             <div class="flex items-center gap-2" in:fade>
-              <RotateCw class="w-5 h-5 text-purple-500 animate-spin" />
-              <span class="text-white/40 font-bold tracking-[0.3em] uppercase text-xs">Spinning Reels</span>
+              <RotateCw class="w-3 h-3 md:w-4 md:h-4 text-purple-500 animate-spin" />
+              <span class="text-white/40 font-bold tracking-[0.2em] uppercase text-[8px] md:text-[10px]">Spinning</span>
             </div>
           {:else}
-            <span class="text-white/20 font-medium tracking-widest uppercase text-sm" in:fade>Place your bet</span>
+            <span class="text-white/20 font-medium tracking-widest uppercase text-[10px] md:text-xs" in:fade>Good Luck!</span>
           {/if}
         </div>
       </div>
     </div>
 
     <!-- Controls -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6 items-center">
       <!-- Bet Controls -->
-      <div class="bg-white/5 p-6 rounded-3xl border border-white/10 flex flex-col gap-4">
-        <span class="text-xs uppercase tracking-widest text-white/40 font-bold">Current Bet</span>
+      <div class="bg-white/5 p-3 md:p-6 rounded-2xl md:rounded-3xl border border-white/10 flex flex-col gap-1 md:gap-4 order-2 md:order-1">
+        <div class="flex justify-between items-center">
+          <span class="text-[8px] md:text-[10px] uppercase tracking-widest text-white/40 font-bold">Bet Amount</span>
+          <span class="text-[8px] md:text-[10px] uppercase tracking-widest text-purple-400 font-bold">{BET_MULTIPLIERS[betMultiplierIndex]}x Multiplier</span>
+        </div>
         <div class="flex items-center justify-between">
           <button 
-            onclick={() => adjustBet(-10)}
-            disabled={spinning || bet <= 10}
-            class="w-12 h-12 rounded-2xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all flex items-center justify-center font-bold text-2xl active:scale-90"
+            onclick={() => adjustBet(-1) }
+            disabled={spinning || betMultiplierIndex <= 0}
+            class="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-2xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all flex items-center justify-center font-bold text-lg active:scale-90"
           >
             -
           </button>
-          <span class="text-4xl font-mono font-bold tracking-tighter">${bet}</span>
+          <span class="text-xl md:text-4xl font-mono font-bold tracking-tighter">${bet.toLocaleString()}</span>
           <button 
-            onclick={() => adjustBet(10)}
-            disabled={spinning || bet >= balance}
-            class="w-12 h-12 rounded-2xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all flex items-center justify-center font-bold text-2xl active:scale-90"
+            onclick={() => adjustBet(1)}
+            disabled={spinning || betMultiplierIndex >= BET_MULTIPLIERS.length - 1 || (BASE_BET * BET_MULTIPLIERS[betMultiplierIndex + 1]) > balance}
+            class="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-2xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all flex items-center justify-center font-bold text-lg active:scale-90"
           >
             +
           </button>
@@ -348,27 +361,27 @@
       </div>
 
       <!-- Spin Button -->
-      <div class="flex justify-center">
+      <div class="flex justify-center order-1 md:order-2">
         <button 
           onclick={spin}
           disabled={spinning || balance < bet}
-          class="group relative w-36 h-36 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 p-1.5 shadow-2xl shadow-purple-500/30 hover:shadow-purple-500/50 transition-all active:scale-90 disabled:opacity-50 disabled:grayscale"
+          class="group relative w-24 h-24 md:w-36 md:h-36 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 p-1 shadow-xl md:shadow-2xl shadow-purple-500/30 hover:shadow-purple-500/50 transition-all active:scale-90 disabled:opacity-50 disabled:grayscale"
         >
           <div class="w-full h-full rounded-full bg-neutral-950 flex flex-col items-center justify-center group-hover:bg-transparent transition-colors">
-            <RotateCw class="w-14 h-14 text-white {spinning ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-700'}" />
-            <span class="text-[10px] font-black uppercase tracking-widest mt-2 text-white/60 group-hover:text-white">Spin</span>
+            <RotateCw class="w-8 h-8 md:w-14 md:h-14 text-white {spinning ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-700'}" />
+            <span class="text-[7px] md:text-[10px] font-black uppercase tracking-widest mt-1 md:mt-2 text-white/60 group-hover:text-white">Spin</span>
           </div>
         </button>
       </div>
 
       <!-- Quick Stats -->
-      <div class="bg-white/5 p-6 rounded-3xl border border-white/10 flex flex-col gap-4">
-        <span class="text-xs uppercase tracking-widest text-white/40 font-bold">Payout Multipliers</span>
-        <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-white/60">
-          <div class="flex justify-between"><span>7️⃣7️⃣7️⃣</span> <span class="text-red-500 font-bold">50x</span></div>
-          <div class="flex justify-between"><span>💎💎💎</span> <span class="text-blue-400 font-bold">25x</span></div>
-          <div class="flex justify-between"><span>🔔🔔🔔</span> <span class="text-yellow-500 font-bold">10x</span></div>
-          <div class="flex justify-between"><span>🍇🍇🍇</span> <span class="text-purple-500 font-bold">5x</span></div>
+      <div class="bg-white/5 p-3 md:p-6 rounded-2xl md:rounded-3xl border border-white/10 flex flex-col gap-1 md:gap-4 order-3">
+        <span class="text-[8px] md:text-[10px] uppercase tracking-widest text-white/40 font-bold">Multipliers</span>
+        <div class="grid grid-cols-4 md:grid-cols-2 gap-x-2 md:gap-x-4 gap-y-1 text-[8px] md:text-[10px] text-white/60">
+          <div class="flex justify-between md:block"><span>7️⃣7️⃣7️⃣</span> <span class="text-red-500 font-bold md:ml-1">50x</span></div>
+          <div class="flex justify-between md:block"><span>💎💎💎</span> <span class="text-blue-400 font-bold md:ml-1">25x</span></div>
+          <div class="flex justify-between md:block"><span>🔔🔔🔔</span> <span class="text-yellow-500 font-bold md:ml-1">10x</span></div>
+          <div class="flex justify-between md:block"><span>🍇🍇🍇</span> <span class="text-purple-500 font-bold md:ml-1">5x</span></div>
         </div>
       </div>
     </div>
@@ -386,44 +399,44 @@
       transition:fade={{ duration: 300 }}
     >
       <div 
-        class="w-full max-w-md bg-neutral-900 h-full p-8 shadow-2xl border-l border-white/10"
+        class="w-full sm:max-w-md bg-neutral-900 h-full p-6 md:p-8 shadow-2xl border-l border-white/10 flex flex-col"
         onclick={e => e.stopPropagation()}
         onkeydown={e => e.stopPropagation()}
         role="presentation"
         transition:fly={{ x: 400, duration: 500, easing: cubicOut }}
       >
-        <div class="flex justify-between items-center mb-10">
+        <div class="flex justify-between items-center mb-6 md:mb-10">
           <div class="flex items-center gap-3">
-            <History class="w-6 h-6 text-purple-500" />
-            <h2 class="text-2xl font-bold tracking-tight">Recent Spins</h2>
+            <History class="w-5 h-5 md:w-6 md:h-6 text-purple-500" />
+            <h2 class="text-xl md:text-2xl font-bold tracking-tight">Recent Spins</h2>
           </div>
           <button 
             onclick={() => showHistory = false} 
-            class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
+            class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
           >
             ✕
           </button>
         </div>
 
-        <div class="flex flex-col gap-4 overflow-y-auto max-h-[calc(100vh-200px)] pr-2 custom-scrollbar">
+        <div class="flex-1 flex flex-col gap-3 md:gap-4 overflow-y-auto pr-2 custom-scrollbar">
           {#each history as item, i (item.time + i)}
             <div 
-              class="bg-white/5 p-5 rounded-3xl border border-white/5 flex justify-between items-center group hover:bg-white/10 transition-all"
+              class="bg-white/5 p-4 md:p-5 rounded-2xl md:rounded-3xl border border-white/5 flex justify-between items-center group hover:bg-white/10 transition-all"
               in:fly={{ y: 20, delay: i * 50 }}
             >
               <div class="flex flex-col gap-1">
-                <span class="text-2xl tracking-widest">{item.result}</span>
-                <span class="text-[10px] text-white/30 uppercase font-black tracking-widest">{item.time}</span>
+                <span class="text-xl md:text-2xl tracking-widest">{item.result}</span>
+                <span class="text-[8px] md:text-[10px] text-white/30 uppercase font-black tracking-widest">{item.time}</span>
               </div>
               <div class="flex flex-col items-end">
-                <span class="text-green-400 font-black font-mono text-lg">+${item.win}</span>
-                <span class="text-[8px] text-white/20 uppercase font-bold">Payout</span>
+                <span class="text-green-400 font-black font-mono text-base md:text-lg">+${item.win}</span>
+                <span class="text-[7px] md:text-[8px] text-white/20 uppercase font-bold">Payout</span>
               </div>
             </div>
           {:else}
-            <div class="text-center py-20 text-white/10">
-              <History class="w-16 h-16 mx-auto mb-6 opacity-10" />
-              <p class="font-bold uppercase tracking-widest text-sm">No history found</p>
+            <div class="flex-1 flex flex-col items-center justify-center text-white/10">
+              <History class="w-12 h-12 md:w-16 md:h-16 mx-auto mb-4 md:mb-6 opacity-10" />
+              <p class="font-bold uppercase tracking-widest text-xs md:text-sm">No history found</p>
             </div>
           {/each}
         </div>
