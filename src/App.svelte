@@ -23,7 +23,7 @@
 
   // Sound Effects
   const SOUNDS = {
-    spin: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3',
+    spin: 'audio/2013.mp3',
     stop: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
     win: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3'
   };
