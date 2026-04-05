@@ -93,6 +93,13 @@
   let spinning = $state(false);
   let lastWin = $state(0);
   let reels = $state(Array(REEL_COUNT).fill(0).map(() => getRandomSymbols()));
+  
+  let reelData = $state(Array(REEL_COUNT).fill(0).map((_, i) => ({
+    symbols: reels[i],
+    offset: 0,
+    isSpinning: false
+  })));
+
   let history = $state<{ result: string, win: number, time: string }[]>([]);
   let showHistory = $state(false);
   let winParticles = $state<{ id: number, x: number, y: number }[]>([]);
@@ -148,12 +155,39 @@
     lastWin = 0;
     playSfx('spin');
 
-    // Simulate spin delay with staggered reel stops
-    for (let i = 0; i < REEL_COUNT; i++) {
-      await new Promise(resolve => setTimeout(resolve, 600 + i * 400));
-      reels[i] = getRandomSymbols();
+    const finalResults = Array(REEL_COUNT).fill(0).map(() => getRandomSymbols());
+    
+    const spinPromises = reelData.map(async (reel, i) => {
+      // Create a long strip: current symbols + random padding + final symbols
+      const paddingCount = 40 + i * 20;
+      const padding = Array(paddingCount).fill(0).map(() => SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]);
+      
+      const newSymbols = [...reel.symbols, ...padding, ...finalResults[i]];
+      reel.symbols = newSymbols;
+      
+      // Wait a tick for DOM to update
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      reel.isSpinning = true;
+      // Calculate offset: move up by (total - 3) symbols
+      // Each symbol height is 1/3 of the container height (100% / 3)
+      const symbolHeightPct = 100 / 3;
+      reel.offset = (newSymbols.length - 3) * symbolHeightPct;
+      
+      // Wait for transition to finish (duration matches CSS)
+      await new Promise(resolve => setTimeout(resolve, 2500 + i * 600));
+      
+      // Reset for next spin: keep only the last 3 symbols and reset offset
+      reel.symbols = finalResults[i];
+      reel.offset = 0;
+      reel.isSpinning = false;
       playSfx('stop');
-    }
+      
+      // Update the main reels state for win checking
+      reels[i] = finalResults[i];
+    });
+
+    await Promise.all(spinPromises);
 
     stopSfx('spin');
     checkWin();
@@ -275,113 +309,123 @@
     </div>
   </header>
 
-  <div class="max-w-4xl mx-auto p-3 md:p-8 flex flex-col gap-4 md:gap-8">
-    <!-- Slot Machine -->
-    <div class="relative group">
-      <div class="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-[2rem] md:rounded-[2.5rem] blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
-      
-      <div class="relative bg-neutral-900 border border-white/10 rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl">
-        <!-- Reel Area -->
-        <div class="grid grid-cols-3 gap-1.5 md:gap-4 p-3 md:p-8 bg-black/40">
-          {#each reels as reel, i}
-            <div class="relative h-[220px] sm:h-[280px] md:h-[380px] bg-neutral-800/50 rounded-xl md:rounded-2xl border border-white/5 overflow-hidden">
-              <div 
-                class="absolute inset-0 flex flex-col justify-around items-center py-2 md:py-4 transition-transform duration-500"
-                class:animate-reel-spin={spinning}
-                style="animation-delay: {i * 150}ms"
-              >
-                {#each reel as symbol}
-                  <div 
-                    class="text-3xl sm:text-4xl md:text-6xl transition-all duration-500 transform"
-                    class:blur-md={spinning}
-                    class:scale-90={spinning}
-                    class:opacity-50={spinning}
-                  >
-                    {symbol.icon}
-                  </div>
-                {/each}
+  <div class="max-w-6xl mx-auto p-3 md:p-8 flex flex-col lg:flex-row gap-6 lg:gap-10 items-start">
+    <!-- Left Side: Slot Machine -->
+    <div class="w-full lg:flex-1 flex flex-col gap-4 md:gap-6">
+      <div class="relative group">
+        <div class="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-[2rem] md:rounded-[2.5rem] blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
+        
+        <div class="relative bg-neutral-900 border border-white/10 rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl">
+          <!-- Reel Area -->
+          <div class="grid grid-cols-3 gap-1.5 md:gap-4 p-3 md:p-8 bg-black/40">
+            {#each reelData as reel, i}
+              <div class="relative h-[220px] sm:h-[280px] md:h-[380px] bg-neutral-800/50 rounded-xl md:rounded-2xl border border-white/5 overflow-hidden">
+                <div 
+                  class="absolute inset-x-0 flex flex-col items-center"
+                  style="
+                    transform: translateY(-{reel.offset}%); 
+                    transition: transform {reel.isSpinning ? (2.5 + i * 0.6) : 0}s cubic-bezier(0.45, 0.05, 0.2, 1);
+                    height: {reel.symbols.length * (100/3)}%;
+                  "
+                >
+                  {#each reel.symbols as symbol}
+                    <div 
+                      class="flex items-center justify-center w-full"
+                      style="height: {100 / reel.symbols.length}%;"
+                    >
+                      <div 
+                        class="text-3xl sm:text-4xl md:text-6xl transition-all duration-300 transform"
+                        class:blur-sm={reel.isSpinning}
+                        class:scale-90={reel.isSpinning}
+                        class:opacity-80={reel.isSpinning}
+                      >
+                        {symbol.icon}
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+                <!-- Glass Effect Overlay -->
+                <div class="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/80 via-transparent to-black/80"></div>
+                <div class="absolute inset-0 pointer-events-none border-x border-white/5"></div>
               </div>
-              <!-- Glass Effect Overlay -->
-              <div class="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/60 via-transparent to-black/60"></div>
-              <div class="absolute inset-0 pointer-events-none border-x border-white/5"></div>
-            </div>
-          {/each}
-        </div>
+            {/each}
+          </div>
 
-        <!-- Win Display -->
-        <div class="h-12 md:h-20 bg-neutral-900/80 border-t border-white/10 flex items-center justify-center overflow-hidden">
-          {#if lastWin > 0}
-            <div 
-              class="flex items-center gap-2 md:gap-4"
-              in:fly={{ y: 50, duration: 800, easing: elasticOut }}
-            >
-              <Trophy class="w-5 h-5 md:w-8 md:h-8 text-yellow-400 animate-bounce" />
-              <span class="text-xl md:text-4xl font-black text-yellow-400 tracking-tighter">
-                WIN! ${lastWin.toLocaleString()}
-              </span>
-              <Trophy class="w-5 h-5 md:w-8 md:h-8 text-yellow-400 animate-bounce" />
-            </div>
-          {:else if spinning}
-            <div class="flex items-center gap-2" in:fade>
-              <RotateCw class="w-3 h-3 md:w-4 md:h-4 text-purple-500 animate-spin" />
-              <span class="text-white/40 font-bold tracking-[0.2em] uppercase text-[8px] md:text-[10px]">Spinning</span>
-            </div>
-          {:else}
-            <span class="text-white/20 font-medium tracking-widest uppercase text-[10px] md:text-xs" in:fade>Good Luck!</span>
-          {/if}
+          <!-- Win Display -->
+          <div class="h-12 md:h-20 bg-neutral-900/80 border-t border-white/10 flex items-center justify-center overflow-hidden">
+            {#if lastWin > 0}
+              <div 
+                class="flex items-center gap-2 md:gap-4"
+                in:fly={{ y: 50, duration: 800, easing: elasticOut }}
+              >
+                <Trophy class="w-5 h-5 md:w-8 md:h-8 text-yellow-400 animate-bounce" />
+                <span class="text-xl md:text-4xl font-black text-yellow-400 tracking-tighter">
+                  WIN! ${lastWin.toLocaleString()}
+                </span>
+                <Trophy class="w-5 h-5 md:w-8 md:h-8 text-yellow-400 animate-bounce" />
+              </div>
+            {:else if spinning}
+              <div class="flex items-center gap-2" in:fade>
+                <RotateCw class="w-3 h-3 md:w-4 md:h-4 text-purple-500 animate-spin" />
+                <span class="text-white/40 font-bold tracking-[0.2em] uppercase text-[8px] md:text-[10px]">Spinning</span>
+              </div>
+            {:else}
+              <span class="text-white/20 font-medium tracking-widest uppercase text-[10px] md:text-xs" in:fade>Good Luck!</span>
+            {/if}
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Controls -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6 items-center">
+    <!-- Right Side: Controls Sidebar -->
+    <div class="w-full lg:w-80 flex flex-col gap-4 md:gap-6">
+      <!-- Spin Button (Top on Sidebar) -->
+      <div class="flex justify-center bg-white/5 p-6 md:p-8 rounded-[2rem] border border-white/10 shadow-xl">
+        <button 
+          onclick={spin}
+          disabled={spinning || balance < bet}
+          class="group relative w-28 h-28 md:w-36 md:h-36 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 p-1 shadow-xl md:shadow-2xl shadow-purple-500/30 hover:shadow-purple-500/50 transition-all active:scale-90 disabled:opacity-50 disabled:grayscale"
+        >
+          <div class="w-full h-full rounded-full bg-neutral-950 flex flex-col items-center justify-center group-hover:bg-transparent transition-colors">
+            <RotateCw class="w-10 h-10 md:w-14 md:h-14 text-white {spinning ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-700'}" />
+            <span class="text-[8px] md:text-[10px] font-black uppercase tracking-widest mt-1 md:mt-2 text-white/60 group-hover:text-white">Spin</span>
+          </div>
+        </button>
+      </div>
+
       <!-- Bet Controls -->
-      <div class="bg-white/5 p-3 md:p-6 rounded-2xl md:rounded-3xl border border-white/10 flex flex-col gap-1 md:gap-4 order-2 md:order-1">
+      <div class="bg-white/5 p-4 md:p-6 rounded-2xl md:rounded-3xl border border-white/10 flex flex-col gap-2 md:gap-4">
         <div class="flex justify-between items-center">
           <span class="text-[8px] md:text-[10px] uppercase tracking-widest text-white/40 font-bold">Bet Amount</span>
-          <span class="text-[8px] md:text-[10px] uppercase tracking-widest text-purple-400 font-bold">{BET_MULTIPLIERS[betMultiplierIndex]}x Multiplier</span>
+          <span class="text-[8px] md:text-[10px] uppercase tracking-widest text-purple-400 font-bold">{BET_MULTIPLIERS[betMultiplierIndex]}x</span>
         </div>
         <div class="flex items-center justify-between">
           <button 
             onclick={() => adjustBet(-1) }
             disabled={spinning || betMultiplierIndex <= 0}
-            class="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-2xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all flex items-center justify-center font-bold text-lg active:scale-90"
+            class="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all flex items-center justify-center font-bold text-lg active:scale-90"
           >
             -
           </button>
-          <span class="text-xl md:text-4xl font-mono font-bold tracking-tighter">${bet.toLocaleString()}</span>
+          <span class="text-2xl md:text-3xl font-mono font-bold tracking-tighter">${bet.toLocaleString()}</span>
           <button 
             onclick={() => adjustBet(1)}
             disabled={spinning || betMultiplierIndex >= BET_MULTIPLIERS.length - 1 || (BASE_BET * BET_MULTIPLIERS[betMultiplierIndex + 1]) > balance}
-            class="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-2xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all flex items-center justify-center font-bold text-lg active:scale-90"
+            class="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all flex items-center justify-center font-bold text-lg active:scale-90"
           >
             +
           </button>
         </div>
       </div>
 
-      <!-- Spin Button -->
-      <div class="flex justify-center order-1 md:order-2">
-        <button 
-          onclick={spin}
-          disabled={spinning || balance < bet}
-          class="group relative w-24 h-24 md:w-36 md:h-36 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 p-1 shadow-xl md:shadow-2xl shadow-purple-500/30 hover:shadow-purple-500/50 transition-all active:scale-90 disabled:opacity-50 disabled:grayscale"
-        >
-          <div class="w-full h-full rounded-full bg-neutral-950 flex flex-col items-center justify-center group-hover:bg-transparent transition-colors">
-            <RotateCw class="w-8 h-8 md:w-14 md:h-14 text-white {spinning ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-700'}" />
-            <span class="text-[7px] md:text-[10px] font-black uppercase tracking-widest mt-1 md:mt-2 text-white/60 group-hover:text-white">Spin</span>
-          </div>
-        </button>
-      </div>
-
-      <!-- Quick Stats -->
-      <div class="bg-white/5 p-3 md:p-6 rounded-2xl md:rounded-3xl border border-white/10 flex flex-col gap-1 md:gap-4 order-3">
-        <span class="text-[8px] md:text-[10px] uppercase tracking-widest text-white/40 font-bold">Multipliers</span>
-        <div class="grid grid-cols-4 md:grid-cols-2 gap-x-2 md:gap-x-4 gap-y-1 text-[8px] md:text-[10px] text-white/60">
-          <div class="flex justify-between md:block"><span>7️⃣7️⃣7️⃣</span> <span class="text-red-500 font-bold md:ml-1">50x</span></div>
-          <div class="flex justify-between md:block"><span>💎💎💎</span> <span class="text-blue-400 font-bold md:ml-1">25x</span></div>
-          <div class="flex justify-between md:block"><span>🔔🔔🔔</span> <span class="text-yellow-500 font-bold md:ml-1">10x</span></div>
-          <div class="flex justify-between md:block"><span>🍇🍇🍇</span> <span class="text-purple-500 font-bold md:ml-1">5x</span></div>
+      <!-- Multipliers -->
+      <div class="bg-white/5 p-4 md:p-6 rounded-2xl md:rounded-3xl border border-white/10 flex flex-col gap-3">
+        <span class="text-[8px] md:text-[10px] uppercase tracking-widest text-white/40 font-bold">Payout Multipliers</span>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] text-white/60">
+          <div class="flex justify-between"><span>7️⃣7️⃣7️⃣</span> <span class="text-red-500 font-bold">50x</span></div>
+          <div class="flex justify-between"><span>💎💎💎</span> <span class="text-blue-400 font-bold">25x</span></div>
+          <div class="flex justify-between"><span>🔔🔔🔔</span> <span class="text-yellow-500 font-bold">10x</span></div>
+          <div class="flex justify-between"><span>🍇🍇🍇</span> <span class="text-purple-500 font-bold">5x</span></div>
         </div>
       </div>
     </div>
@@ -449,15 +493,6 @@
   :global(body) {
     background-color: #0a0a0a;
     overflow-x: hidden;
-  }
-
-  @keyframes reel-spin {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(-20px); }
-  }
-
-  .animate-reel-spin {
-    animation: reel-spin 0.1s linear infinite;
   }
 
   .custom-scrollbar::-webkit-scrollbar {
